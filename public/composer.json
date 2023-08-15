@@ -2,7 +2,7 @@
     "name": "php7/service-container-and-annotaions",
     "require": {
         "php": ">=7.0.0",
-        "doctrine/annotations": "^2.0"
+        "doctrine/annotations": "2.0.1"
     },
     "autoload": {
         "psr-4": {

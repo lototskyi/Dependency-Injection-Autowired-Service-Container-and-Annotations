@@ -5,10 +5,13 @@ namespace App;
 use App\Format\JSON;
 use App\Format\XML;
 use App\Format\FormatInterface;
+use Doctrine\Common\Annotations\AnnotationReader;
+use App\Annotations\Route;
 
 class Kernel
 {
     private $container;
+    private $routes = [];
 
     public function __construct()
     {
@@ -23,6 +26,7 @@ class Kernel
     public function boot()
     {
         $this->bootContainer($this->container);
+        return $this;
     }
 
     private function bootContainer(Container $container)
@@ -40,6 +44,52 @@ class Kernel
         }, FormatInterface::class);
 
         $container->loadServices('App\\Service');
-        $container->loadServices('App\\Controller');
+
+        $reader = new AnnotationReader();
+
+        $routes = [];
+
+        $container->loadServices(
+            'App\\Controller',
+            function (string $serviceName, \ReflectionClass $class) use($reader, &$routes) {
+                $route = $reader->getClassAnnotation($class, Route::class);
+
+                if (!$route) {
+                    return;
+                }
+
+                $baseRoute = $route->route;
+
+                foreach ($class->getMethods() as $method) {
+                    $route = $reader->getMethodAnnotation($method, Route::class);
+
+                    if (!$route) {
+                        continue;
+                    }
+
+                    var_dump($route);
+
+                    $routes[str_replace('//', '/', $baseRoute . $route->route)] = [
+                        'service' => $serviceName,
+                        'method' => $method->getName()
+                    ];
+                }
+            }
+        );
+
+        $this->routes = $routes;
+    }
+
+    public function handleRequest()
+    {
+        $uri = $_SERVER['REQUEST_URI'];
+
+        var_dump($uri);
+
+        if (isset($this->routes[$uri])) {
+            $route = $this->routes[$uri];
+            $response = $this->container->getService($route['service'])->{$route['method']}();
+            echo $response; die;
+        }
     }
 }
